@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 
+#calculations2 
+
 def calculate_costs(stream_hours, transformation_complexity, users, user_hours, 
                     warehouse_hours, concurrent_queries, models, peak_queries, model_hours):
     # Placeholder calculations - replace with actual formulas
