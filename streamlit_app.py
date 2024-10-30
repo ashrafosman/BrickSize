@@ -5,19 +5,39 @@ import pandas as pd
 if 'use_cases' not in st.session_state:
     st.session_state.use_cases = []
 
-def calculate_costs(stream_hours, transformation_complexity, users, user_hours, 
-                    warehouse_hours, concurrent_queries, models, peak_queries, model_hours):
-    # Placeholder calculations - replace with actual formulas
-    jobs_monthly_cost = stream_hours * 30 * 17.1
-    dlt_core_monthly_cost = stream_hours * 30 * 34.1
+# Define the lookup table from the image
+lookup_table = {
+    "ETL - Light Transformations": [20, 70, 150, 300, 1000],
+    "ETL - Heavy Transformations": [70, 150, 300, 500, 1000],
+    "Ad-Hoc Analytics - Light < 10 Users": [20, 70, 150, 300, 1000],
+    "Ad-Hoc Analytics - Med 10 > Users < 20": [20, 70, 150, 300, 1000],
+    "Ad-Hoc Analytics - Heavy > 20 Users": [70, 150, 300, 500, 1000],
+    "Data Warehouse - Light < 10 Users": [20, 70, 150, 300, 1000],
+    "Data Warehouse - Med < 10 Users < 40": [20, 70, 150, 300, 1000],
+    "Data Warehouse - Heavy > 40 Users": [150, 300, 1000],
+    "ML - Scoring": [20, 70, 150],
+    "ML - Training": [70, 150, 300],
+    "Streaming": [1000], # Assuming Streaming is always high volume
+    "Deep Learning": [20]
+}
+
+# Define data volume categories
+data_volume_categories = ["<20 GB", "20GB-100GB", "100GB-1TB", "1TB-50TB", ">50TB"]
+
+def calculate_costs(use_case_type, data_volume_index):
+    # Get cost from lookup table based on selected use case and data volume
+    cost = lookup_table[use_case_type][data_volume_index]
+    
+    # Placeholder calculations for other components (you can replace these with actual formulas)
+    dlt_core_monthly_cost = cost * 1.5
     dlt_advanced_monthly_cost = dlt_core_monthly_cost * 1.8
-    notebook_monthly_cost = users * user_hours * 22 * 8.25
-    sql_low_monthly_cost = warehouse_hours * 30 * concurrent_queries * 35
+    notebook_monthly_cost = cost * 2.5
+    sql_low_monthly_cost = cost * 3.5
     sql_high_monthly_cost = sql_low_monthly_cost * 2
-    model_serving_monthly_cost = models * peak_queries * model_hours * 30 * 0.35
+    model_serving_monthly_cost = cost * 4
 
     return {
-        "Stream Processing": jobs_monthly_cost,
+        "Selected Use Case Cost": cost,
         "DLT Core": dlt_core_monthly_cost,
         "DLT Advanced": dlt_advanced_monthly_cost,
         "Notebooks": notebook_monthly_cost,
@@ -34,39 +54,19 @@ with st.form("use_case_form"):
     
     use_case_name = st.text_input("Use Case Name", "")
     
-    # Stream Processing Section
-    st.subheader("Stream Processing")
-    stream_hours = st.slider("Stream Hours per Day", 0, 24, 24)
-    transformation_complexity = st.selectbox(
-        "Transformation Complexity", 
-        ["Simple", "Moderate", "Complex"],
-        format_func=lambda x: f"{x}: {['Basic selects, filters', 'Aggregations/groups, small, single-key joins', 'Large/multi-key joins, regex parsing, explode, UDFs'][['Simple', 'Moderate', 'Complex'].index(x)]}"
-    )
+    # Select Use Case Type (from lookup table)
+    use_case_type = st.selectbox("Select Use Case Type", list(lookup_table.keys()))
     
-    # Building Pipelines & Data Science Section
-    st.subheader("Building Pipelines & Data Science")
-    users = st.number_input("Number of Users", min_value=1, value=10)
-    user_hours = st.slider("User Active Hours per Day", 0, 24, 8)
+    # Select Data Volume Category (from lookup table)
+    data_volume_category = st.selectbox("Select Data Volume Category", data_volume_categories)
     
-    # Warehousing & SQL Analysis Section
-    st.subheader("Warehousing & SQL Analysis")
-    warehouse_hours = st.slider("Warehouse Query Hours per Day", 0, 24, 8)
-    concurrent_queries = st.number_input("Concurrent Queries", min_value=0.1, value=1.0, step=0.1)
-    
-    # Model Serving Section
-    st.subheader("Model Serving")
-    models = st.number_input("Number of Models", min_value=1, value=1)
-    peak_queries = st.number_input("Peak Queries", min_value=1, value=100)
-    model_hours = st.slider("Model Request Hours per Day", 0, 24, 24)
+    # Map data volume category to index in lookup table (for cost calculation)
+    data_volume_index = data_volume_categories.index(data_volume_category)
     
     submitted = st.form_submit_button("Add Use Case")
     
     if submitted and use_case_name:
-        costs = calculate_costs(stream_hours,
-                                ["Simple", "Moderate", "Complex"].index(transformation_complexity) + 1,
-                                users, user_hours,
-                                warehouse_hours, concurrent_queries,
-                                models, peak_queries, model_hours)
+        costs = calculate_costs(use_case_type, data_volume_index)
         
         # Add the new use case to the session state
         st.session_state.use_cases.append((use_case_name, costs))
@@ -97,4 +97,3 @@ if st.session_state.use_cases:
     st.header("Aggregated Use Case Costs")
     
     st.table(total_df.style.format("${:,.2f}"))
-    
